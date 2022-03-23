@@ -101,7 +101,7 @@ type Book{
 
 type Author{
   name: String!
-  born: Int!
+  born: Int
   bookCount: Int!
 }
 type Mutation{
@@ -114,15 +114,14 @@ type Mutation{
   editAuthor(
     name: String!
     born: Int!
-  )
+  ):Author
 }
-  type Query {
-      bookCount: Int!
-      authorCount: Int!
-      allBook (author: String,genre: String): [Book!]!
-      allAuthor : [Author!]!
-  }
-`
+type Query {
+  bookCount: Int!
+  authorCount: Int!
+  allBook (author: String,genre: String): [Book!]!
+  allAuthor : [Author!]!
+}`
 
 const resolvers = {
   Query: {
