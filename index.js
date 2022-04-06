@@ -1,8 +1,9 @@
 const { ApolloServer, gql } = require('apollo-server')
 const { ApolloServerPluginLandingPageGraphQLPlayground } = require(`apollo-server-core`)
-const {v1: uuid} = require('uuid')
+const Author = require('./model/author')
+const Book = require('./model/book')
 
-let authors = [
+/*let authors = [
   {
     name: 'Robert Martin',
     id: "afa51ab0-344d-11e9-a414-719c6709cf3e",
@@ -26,7 +27,7 @@ let authors = [
     name: 'Sandi Metz', // birthyear not known
     id: "afa5b6f3-344d-11e9-a414-719c6709cf3e",
   },
-]
+]*/
 
 /*
  * Suomi:
@@ -38,7 +39,7 @@ let authors = [
  * However, for simplicity, we will store the author's name in connection with the book
 */
 
-let books = [
+/*let books = [
   {
     title: 'Clean Code',
     published: 2008,
@@ -88,13 +89,13 @@ let books = [
     id: "afa5de04-344d-11e9-a414-719c6709cf3e",
     genres: ['classic', 'revolution']
   },
-]
+]*/
 
 const typeDefs = gql`
 type Book{
   title: String!
   published: Int!
-  author: String!
+  author: Author!
   id: ID !
   genres: [String!]!
 }
@@ -119,29 +120,21 @@ type Mutation{
 type Query {
   bookCount: Int!
   authorCount: Int!
-  allBook (author: String,genre: String): [Book!]!
+  allBook (author: String): [Book!]!
   allAuthor : [Author!]!
 }`
 
 const resolvers = {
   Query: {
-    bookCount : ()=> books.length,
-    authorCount: ()=> authors.length,
+    bookCount : async ()=> Book.collection.countDocuments() ,
+    authorCount: async()=> Author.collection.countDocuments(),
     allBook: (root, args)=>{
-      if(!args.author && !args.genre){
-        return books
+      if(!args.author){
+        return Book.find({})
       }
-      if(args.author && args.genre){
-        return books.filter(book => book.author === args.author && book.genres.includes(args.genre))
-      }
-      if(args.author){
-        return books.filter(book => book.author === args.author)
-      }
-      if(args.genre){
-        return books.filter(book => book.genres.includes(args.genre))
-      }
+      return Book.find({author :{$in:args.author}})
     }, 
-    allAuthor :() => authors
+    allAuthor :() => Author.collection.countDocuments()
   },
   Author: {
     bookCount: (root)=> {
