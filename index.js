@@ -1,7 +1,19 @@
 const { ApolloServer, gql } = require('apollo-server')
-const { ApolloServerPluginLandingPageGraphQLPlayground } = require(`apollo-server-core`)
+const { ApolloServerPluginLandingPageGraphQLPlayground,AuthenticationError } = require(`apollo-server-core`)
+const mongoose = require('mongoose')
 const Author = require('./model/author')
 const Book = require('./model/book')
+require('dotenv').config()
+const jwt =require('jsonwebtoken')
+const MONGODB_URI = process.env.MONGODB_URI
+console.log('connecting to', MONGODB_URI)
+mongoose.connect(MONGODB_URI)
+ .then(() => {
+   console.log('connected to MongoDB')
+ })
+ .catch((error)=>{
+   console.log('error connecting to MongoDB')
+ })
 
 /*let authors = [
   {
@@ -134,7 +146,7 @@ const resolvers = {
       }
       return Book.find({author :{$in:args.author}})
     }, 
-    allAuthor :() => Author.collection.countDocuments()
+    allAuthor :() => Author.find({})
   },
   Author: {
     bookCount: (root)=> {
