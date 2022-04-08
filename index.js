@@ -1,4 +1,4 @@
-const { ApolloServer, gql } = require('apollo-server')
+const { ApolloServer, UserInputError, gql } = require('apollo-server')
 const { ApolloServerPluginLandingPageGraphQLPlayground,AuthenticationError } = require(`apollo-server-core`)
 const mongoose = require('mongoose')
 const Author = require('./model/author')
@@ -115,7 +115,7 @@ type Book{
 type Author{
   name: String!
   born: Int
-  bookCount: Int!
+  bookCount: Int
 }
 type Mutation{
   addBook(
@@ -123,7 +123,7 @@ type Mutation{
     author:String!
     published: Int!
     genres:[String!]!
-  ):Book
+  ):Book!
   editAuthor(
     name: String!
     born: Int!
@@ -140,13 +140,13 @@ const resolvers = {
   Query: {
     bookCount : async ()=> Book.collection.countDocuments() ,
     authorCount: async()=> Author.collection.countDocuments(),
-    allBook: (root, args)=>{
+    allBook: async(root, args)=>{
       if(!args.author){
-        return Book.find({})
+        return await Book.find({})
       }
-      return Book.find({author :{$in:args.author}})
+      return await Book.find({author :{$in:args.author}})
     }, 
-    allAuthor :() => Author.find({})
+    allAuthor:async() => Author.find({})
   },
   Author: {
     bookCount: (root)=> {
@@ -155,19 +155,32 @@ const resolvers = {
     }
   },
   Mutation: {
-    addBook:(root,args) =>{
-      const existingAuthor = authors.find( author => author.name === args.author)
-      if(!existingAuthor){
-        const author = {
-          name: args.author,
-          id: uuid()
+    addBook:async (root,args) =>{
+      let bookAuthor = await Author.findOne({name: args.author})
+      const book = new Book({...args})
+      if(!bookAuthor){
+        try{
+           const author = new Author({
+            name : args.author
+          })
+          await author.save()
+          bookAuthor = author
+        }catch(error){
+          throw new UserInputError(error.message, {
+            invalidArgs: args
+          })
         }
-        authors.concat(author)
       }
-      const book = {...args, id: uuid()}
-      books.concat(book)
+      book.author = bookAuthor
+      try{
+        await  book.save()
+      }catch(error){
+        throw new UserInputError( error.message, {
+          invalidArgs: args
+        })
+      }
+      
       return book
-
     },
     editAuthor:(root, args) =>{
       const existingAuthor = authors.find( author => author.name === args.name)
