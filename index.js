@@ -3,9 +3,9 @@ const { ApolloServerPluginLandingPageGraphQLPlayground,AuthenticationError } = r
 const mongoose = require('mongoose')
 const Author = require('./model/author')
 const Book = require('./model/book')
+const User = require('./model/user')
 require('dotenv').config()
 const jwt =require('jsonwebtoken')
-const { populate } = require('./model/author')
 const MONGODB_URI = process.env.MONGODB_URI
 console.log('connecting to', MONGODB_URI)
 mongoose.connect(MONGODB_URI)
@@ -85,13 +85,19 @@ const resolvers = {
       return count.length
     }
   },
+  me: async(root,args,context) => {
+    return context.currentUser
+  },
   Mutation: {
-    addBook:async (root,args) =>{
+    addBook:async (root,args, context) =>{
       let bookAuthor = await Author.findOne({name: args.author})
       const book = new Book({...args})
+      if(!context.currentUser){
+        throw new AuthenticationError("not authenticated !")
+      }
       if(!bookAuthor){
         try{
-           const author = new Author({
+          const author = new Author({
             name : args.author
           })
           await author.save()
@@ -113,14 +119,45 @@ const resolvers = {
       
       return book
     },
-    editAuthor:(root, args) =>{
-      const existingAuthor = authors.find( author => author.name === args.name)
-      if(!existingAuthor){
-        return null
+    editAuthor:(root, args, context) =>{
+      const existingAuthor = await Author.findone( {name: args.name})
+      if(!context.currentUser){
+        throw new AuthenticationError("not authenticated!")
       }
-      const editedauthor = {...existingAuthor, born: args.born}
-      authors.map(author => author.name === args.name ? editedauthor: author)
+      if(!existingAuthor){
+        throw new UserInputError("invalid Author name")
+      }
+      existingAuthor.born = args.born
+      try{
+        await existingAuthor.save()
+      }catch(error){
+        throw new UserInputError(error.message, {
+          invalidArgs: args
+        })
+      }
+      return existingAuthor
+      
 
+    },
+    createUser : async (root, args) =>{
+      const user = new User({ username : args.username})
+      return user.save()
+      .catch(error => {
+        throw new UserInputError(error.message, {
+          invalidArgs : args
+        })
+      })
+    },
+    login :async (root, args)=>{
+      const user = await User.findOne({username : args.username})
+      if (!user || args.password !== 'password'){
+        throw new UserInputError("Wrong Credentials")
+      }
+      const userForToken = {
+        username: user.username,
+        id : user._id
+      }
+      return { value: jwt.sign(userForToken, process.env.SECRET)}
     }
   }
 }
@@ -128,6 +165,17 @@ const resolvers = {
 const server = new ApolloServer({
   typeDefs,
   resolvers,
+  context: async ({req}) =>{
+    const auth = req? req.headers.Authorization: null
+    if(auth && auth.toLowerCase().startsWith('bearer')){
+      const decodedToken = jwt.verify(
+        auth.substring(7), process.env.SECRET
+      )
+      const currentUser =await User.findById(decodedToken)
+      return { currentUser }
+    }
+    
+  },
   plugins:[
     ApolloServerPluginLandingPageGraphQLPlayground(),
   ]
