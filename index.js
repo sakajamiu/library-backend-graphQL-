@@ -28,7 +28,6 @@ type Book{
 type Author{
   name: String!
   born: Int
-  bookCount: Int
 }
 type User{
   username: String!
@@ -77,17 +76,12 @@ const resolvers = {
       const books = await Book.find({}).populate('author')
       return books.filter(books => books.author.name === args.author)
     }, 
-    allAuthor:async() => Author.find({})
-  },
-  Author: {
-    bookCount: async(root)=> {
-      const count = Book.findById(book => book.author === root.name)
-      return count.length
-    }
-  },
-  me: async(root,args,context) => {
-    return context.currentUser
-  },
+    allAuthor:async() => Author.find({}),
+  
+    me: async( root ,args,context) => {
+      return context.currentUser
+    },
+ },
   Mutation: {
     addBook:async (root,args, context) =>{
       let bookAuthor = await Author.findOne({name: args.author})
@@ -119,7 +113,7 @@ const resolvers = {
       
       return book
     },
-    editAuthor:(root, args, context) =>{
+    editAuthor:async(root, args, context) =>{
       const existingAuthor = await Author.findone( {name: args.name})
       if(!context.currentUser){
         throw new AuthenticationError("not authenticated!")
